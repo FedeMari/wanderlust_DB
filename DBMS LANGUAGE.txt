@@ -1,0 +1,52 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table Utenti {
+  id_utente INT [primary key, increment] // auto-incremented primary key
+  nome VARCHAR2(255) [not null]
+  cognome VARCHAR2(255) [not null]
+  email VARCHAR2(255) [unique, not null]
+  password VARCHAR2(255) [not null]
+}
+
+Table Posts {
+  id_post INT [primary key, increment] // auto-incremented primary key
+  data DATE
+  titolo VARCHAR2(255) [unique, not null]
+  contenuto CLOB [not null]
+  utente_id INT
+}
+
+Table Categorie {
+  id_categoria INT [primary key, increment] // auto-incremented primary key
+  nome_categoria VARCHAR2(255) [unique]
+}
+
+Table Favoriti {
+  utente_id INT [primary key]
+  post_id INT [primary key]
+}
+
+Table Tags {
+  post_id INT [primary key]
+  categoria_id INT [primary key]
+}
+
+TABLE Immagini {
+  id_immagine INT [primary key, increment] // auto-incremented primary key
+  URL VARCHAR2(1000) [not null]
+  post_id INT
+}
+
+
+Ref: Posts.utente_id > Utenti.id_utente
+
+Ref: Immagini.post_id > Posts.id_post
+
+Ref: Favoriti.utente_id > Utenti.id_utente
+
+Ref: Favoriti.post_id > Posts.id_post
+
+Ref: Tags.categoria_id > Categorie.id_categoria
+
+Ref: Tags.post_id > Posts.id_post

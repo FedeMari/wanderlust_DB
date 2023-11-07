@@ -1,0 +1,70 @@
+create or replace PACKAGE BODY GRUPPO_1 AS
+    
+    PROCEDURE P_DELETE_DIPENDENTE(IN_ID NUMBER) 
+    IS
+    
+    V_ID_DIPENDENTE NUMBER := IN_ID;
+    V_UTENTE_REGISTRATO NUMBER;
+    
+    BEGIN
+    
+        SELECT d.REGISTRATO INTO V_UTENTE_REGISTRATO
+         FROM DIPENDENTI d
+         WHERE d.ID = V_ID_DIPENDENTE;
+        
+        IF V_ID_DIPENDENTE IS NOT NULL AND V_UTENTE_REGISTRATO = 1 THEN 
+        
+            UPDATE DIPENDENTI d
+             SET
+              d.ATTIVO = 0
+             WHERE d.ID = V_ID_DIPENDENTE;
+             
+            DELETE
+             FROM TASK t
+             WHERE t.ID_DIPENDENTE = V_ID_DIPENDENTE; --task cui il dipendente era eventualmente assegnato
+            
+            DELETE
+             FROM ASSEGNAZIONI a
+             WHERE a.ID_DIPENDENTE = V_ID_DIPENDENTE;  --commesse cui il dipendente è associato
+        
+        END IF;
+    
+    END P_DELETE_DIPENDENTE;
+    
+    -----
+    
+    PROCEDURE P_UPDATE_DIPENDENTE(IN_ID NUMBER, IN_NOME VARCHAR2, IN_COGNOME VARCHAR2, IN_CF VARCHAR2, IN_PASSWORD VARCHAR2, IN_TELEFONO VARCHAR2)
+    IS
+    
+    V_ID_DIPENDENTE NUMBER := IN_ID;
+    V_UTENTE_REGISTRATO NUMBER;
+
+    BEGIN
+        
+        SELECT d.REGISTRATO INTO V_UTENTE_REGISTRATO
+         FROM DIPENDENTI d
+         WHERE d.ID = V_ID_DIPENDENTE;
+        
+        IF V_ID_DIPENDENTE IS NOT NULL AND V_UTENTE_REGISTRATO = 1 THEN 
+        
+            UPDATE DIPENDENTI d
+                SET
+                 d.NOME = IN_NOME,
+                 d.COGNOME = IN_COGNOME,
+                 d.CF = IN_CF,
+                 d.PASSWORD = IN_PASSWORD,
+                 d.TELEFONO = IN_TELEFONO             
+                WHERE d.ID = V_ID_DIPENDENTE;
+                
+        END IF;    
+    
+    END P_UPDATE_DIPENDENTE;
+    
+    -----
+
+
+END GRUPPO_1;
+
+
+    PROCEDURE P_DELETE_DIPENDENTE(IN_ID NUMBER); --FEDERICO
+    PROCEDURE P_UPDATE_DIPENDENTE(IN_ID NUMBER, IN_NOME VARCHAR2, IN_COGNOME VARCHAR2, IN_CF VARCHAR2, IN_PASSWORD VARCHAR2, IN_TELEFONO VARCHAR2); --FEDERICO

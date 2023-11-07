@@ -1,0 +1,314 @@
+create or replace PACKAGE                                     PCK_FEDERICO_MARI AS 
+ 
+ PROCEDURE P_INSERT_USER(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2); -- Vanno dichiarate nello spec
+ PROCEDURE P_INSERT_USER_PROVA2(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2); -- Vanno dichiarate nello spec
+ PROCEDURE P_INSERT_USER_PROVA3(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2);
+ FUNCTION F_INSERT_POST (in_utente_id IN UTENTI.id_utente%TYPE, in_titolo IN VARCHAR2, in_contenuto IN VARCHAR2/*, F_OUTPUT OUT VARCHAR2*/) RETURN VARCHAR2;
+ FUNCTION F_EXIST_POST(in_titolo IN VARCHAR2) RETURN VARCHAR2;
+ FUNCTION F_ADD_CATEGORY_TO_POST(in_post_id NUMBER, in_categoria_id NUMBER) RETURN VARCHAR2;
+
+ /*TYPE INFO_RECORD IS RECORD (
+    nome_autore VARCHAR2(500),
+    cognome_autore VARCHAR2(500),
+    data_post DATE,
+    titolo_post NUMBER,
+    categoria_post VARCHAR2(500)
+ );
+ 
+ TYPE INFO_TABLE IS TABLE OF INFO_RECORD;*/
+ 
+ --FUNCTION F_INFO_POST(in_post_id NUMBER) RETURN INFO_TABLE;
+ FUNCTION F_INFO_POST_PROVA(in_post_id NUMBER) RETURN INFO_TABLE;
+ PROCEDURE P_GERARCHICAL_SELECT;
+ PROCEDURE P_LOOP_INFO;
+ 
+ 
+ FUNCTION F_GET_ID_USER(in_email VARCHAR2) RETURN ID_TABLE;
+END PCK_FEDERICO_MARI;
+
+
+
+##############################################################################################################################################################################################
+
+
+create or replace PACKAGE BODY                            PCK_FEDERICO_MARI AS 
+ 
+ PROCEDURE P_INSERT_USER(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2) 
+ IS
+ 
+ CURSOR curs IS
+    SELECT u.id_utente, u.email
+     FROM UTENTI u;
+
+ TYPE P_UTENTE_ID IS TABLE OF UTENTI.id_utente%TYPE;
+ TYPE P_UTENTE_EMAIL IS TABLE OF UTENTI.email%TYPE;
+ 
+ V_P_UTENTE_ID P_UTENTE_ID;
+ V_P_UTENTE_EMAIL P_UTENTE_EMAIL;
+
+ BEGIN
+    OPEN curs;
+    LOOP
+     FETCH curs
+        BULK COLLECT INTO V_P_UTENTE_ID, V_P_UTENTE_EMAIL;        
+        
+     FOR i IN V_P_UTENTE_ID.FIRST..V_P_UTENTE_ID.LAST --LA FOR NON SERVE CON IL FETCH GIA APERTO SOPRA
+     LOOP
+        IF V_P_UTENTE_EMAIL(i) <> in_email THEN 
+          INSERT INTO Utenti VALUES (seq_utenti.nextval, in_cognome, in_email, in_nome, in_password);
+          COMMIT;
+        ELSE DBMS_OUTPUT.PUT_LINE('ERRORE');
+
+        END IF;
+     END LOOP;  
+    
+     EXIT WHEN curs%NOTFOUND;
+        
+    END LOOP;
+    
+    CLOSE curs;
+ --END;
+ EXCEPTION
+    WHEN OTHERS THEN DBMS_OUTPUT.PUT_LINE('UTENTE NON INSERITO, EMAIL GIA PRESENTE NEL DB');
+  
+ END P_INSERT_USER;
+ 
+ ------
+ 
+ PROCEDURE P_INSERT_USER_PROVA2(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2) 
+ IS 
+ 
+ BEGIN
+    
+    FOR i IN (SELECT u.email FROM UTENTI u WHERE u.email = in_email) --usa count() come fosse un booleano per semplificare 
+    LOOP               
+
+    IF in_email = i.email THEN 
+        DBMS_OUTPUT.PUT_LINE('UTENTE NON INSERITO, EMAIL GIA PRESENTE NEL DB');
+    ELSE 
+        INSERT INTO Utenti VALUES (seq_utenti.nextval, in_cognome, in_email, in_nome, in_password);
+        COMMIT;
+        EXIT;
+    END IF;
+    
+    END LOOP;
+    
+ END P_INSERT_USER_PROVA2;
+ 
+ 
+ -------
+ 
+ PROCEDURE P_INSERT_USER_PROVA3(in_nome VARCHAR2, in_cognome VARCHAR2, in_email VARCHAR2, in_password VARCHAR2)
+ IS
+    controllo NUMBER;
+    
+ BEGIN
+    SELECT COUNT(*) INTO controllo FROM Utenti WHERE email = in_email;
+
+    IF controllo > 0 THEN
+       DBMS_OUTPUT.PUT_LINE ('Email già esistente');
+    ELSE
+        INSERT INTO Utenti VALUES (seq_utenti.nextval,in_cognome, in_email, in_nome, in_password);
+    END IF;
+ END P_INSERT_USER_PROVA3;
+ 
+ 
+ 
+ --------------------------------
+ 
+ FUNCTION F_INSERT_POST (in_utente_id UTENTI.id_utente%TYPE, in_titolo VARCHAR2, in_contenuto VARCHAR2/*, F_OUTPUT OUT VARCHAR2*/) RETURN VARCHAR2
+ IS 
+  SQL_STATEMENT VARCHAR2(500):= 'SELECT COUNT(*) FROM POSTS p WHERE p.titolo = :1';
+  POST_NUMBER NUMBER;
+  
+  V_AUTORE_NOME VARCHAR2(50);
+  V_AUTORE_COGNOME VARCHAR2(50);
+ BEGIN
+    EXECUTE IMMEDIATE SQL_STATEMENT INTO POST_NUMBER USING in_titolo;
+    
+    IF POST_NUMBER = 1 THEN
+        --F_OUTPUT := F_EXIST_POST(in_titolo);
+        RETURN F_EXIST_POST(in_titolo);
+    ELSE
+        INSERT INTO POSTS p (p.data, p.id_post, p.utente_id, p.titolo, p.contenuto)
+        VALUES (to_date(SYSDATE,'DD-MM-YYYY'), 
+               seq_posts.nextval,
+               in_utente_id,
+               in_titolo,
+               in_contenuto
+        );
+
+        COMMIT;
+        
+        SELECT u.nome, u.cognome INTO V_AUTORE_NOME, V_AUTORE_COGNOME
+         FROM UTENTI u
+         WHERE u.id_utente = in_utente_id;
+        
+        --F_OUTPUT := 'Il post e stato inserito correttamente dall utente ' || in_utente_id || ' con Titolo: ' || in_titolo ;
+        RETURN 'Il post è stato inserito correttamente dall'' utente ' || V_AUTORE_NOME || ' ' || V_AUTORE_COGNOME/*in_utente_id*/ || ' con Titolo: ' || in_titolo;
+    END IF;
+    
+    RETURN 'Nessun Risultato';
+    
+ END F_INSERT_POST; 
+ 
+ 
+ --------------------------
+ 
+ FUNCTION F_EXIST_POST(in_titolo VARCHAR2) RETURN VARCHAR2
+ IS
+ BEGIN
+    DBMS_OUTPUT.PUT_LINE('Inserimento post non riuscito');
+    RETURN 'Il titolo ' || in_titolo || ' e usato per un post gia esitente!';
+ END F_EXIST_POST;
+ 
+ 
+ ---------------------------
+ 
+FUNCTION F_ADD_CATEGORY_TO_POST(in_post_id NUMBER, in_categoria_id NUMBER) RETURN VARCHAR2
+IS
+
+EX_NO_CATEGORY EXCEPTION;
+PRAGMA EXCEPTION_INIT( EX_NO_CATEGORY, -20001 );
+
+V_NOME_CATEGORIA VARCHAR2(500);
+V_TITOLO_POST VARCHAR2(500);
+
+BEGIN
+    SELECT c.nome_categoria INTO V_NOME_CATEGORIA
+     FROM CATEGORIE c
+     WHERE c.id_categoria = in_categoria_id; --perchè IN non va bene qui??
+                             
+    IF V_NOME_CATEGORIA IS NOT NULL THEN --sql non accetta subquery negli if
+        INSERT INTO TAGS t VALUES (in_categoria_id, in_post_id);
+    
+        COMMIT;
+        
+        SELECT p.titolo INTO V_TITOLO_POST
+         FROM POSTS p
+         WHERE p.id_post = in_post_id;
+    
+        RETURN 'La Categoria <' || V_NOME_CATEGORIA || '>  è stata assegnata al Post "' || V_TITOLO_POST || '"';   
+    
+    ELSE 
+        RAISE_APPLICATION_ERROR (-20001, 'Errore generato tramite eccezione personalizzata');        
+    END IF;    
+        
+EXCEPTION
+    WHEN EX_NO_CATEGORY THEN RETURN sqlerrm; --sqlerrm  ritorna il messaggio di errore associato al numero di errore
+    WHEN OTHERS THEN RETURN 'Altri errori sono sopraggiunti';
+    
+END F_ADD_CATEGORY_TO_POST;
+
+
+--------------------------
+
+/*FUNCTION F_INFO_POST(in_post_id NUMBER) RETURN INFO_TABLE
+IS
+    
+V_SINGLE_RECORD INFO_RECORD;
+
+BEGIN
+    SELECT u.nome, u.cognome, p.data, p.titolo, c.nome_categoria 
+        INTO V_SINGLE_RECORD.nome_autore, V_SINGLE_RECORD.cognome_autore, V_SINGLE_RECORD.data_post, V_SINGLE_RECORD.titolo_post, V_SINGLE_RECORD.categoria_post
+     FROM UTENTI u
+     JOIN POSTS p
+      ON u.id_utente = p.utente_id
+      JOIN TAGS t 
+       ON p.id_post = t.post_id
+       JOIN CATEGORIE c
+        ON t.categoria_id = c.id_categoria
+    WHERE p.id_post = in_post_id;
+    
+    RETURN INFO_TABLE(V_SINGLE_RECORD(V_SINGLE_RECORD.nome_autore, V_SINGLE_RECORD.cognome_autore, V_SINGLE_RECORD.data_post, V_SINGLE_RECORD.titolo_post, V_SINGLE_RECORD.categoria_post)) ;
+
+END F_INFO_POST;*/
+
+
+-----------------------------
+
+FUNCTION F_INFO_POST_PROVA(in_post_id NUMBER) RETURN INFO_TABLE
+IS
+
+V_NOME VARCHAR2(500);
+V_COGNOME VARCHAR2(500);
+V_DATA DATE;
+V_TITOLO VARCHAR2(500);
+V_CATEGORIA VARCHAR2(500);
+
+BEGIN
+    SELECT u.nome, u.cognome, p.data, p.titolo, c.nome_categoria 
+        INTO V_NOME, V_COGNOME, V_DATA, V_TITOLO, V_CATEGORIA
+     FROM UTENTI u
+     JOIN POSTS p
+      ON u.id_utente = p.utente_id
+      JOIN TAGS t 
+       ON p.id_post = t.post_id
+       JOIN CATEGORIE c
+        ON t.categoria_id = c.id_categoria
+    WHERE p.id_post = in_post_id;
+    
+    RETURN INFO_TABLE(
+            INFO_RECORD(V_NOME, V_COGNOME, to_date(V_DATA,'DD-MM-YYYY'), V_TITOLO, V_CATEGORIA)
+            --INFO_RECORD('V_NOME', 'V_COGNOME', '14-SET-23', 'V_TITOLO', 'V_CATEGORIA')
+
+    );
+
+END F_INFO_POST_PROVA;
+
+
+PROCEDURE P_GERARCHICAL_SELECT
+IS
+V_CATEGORIA NUMBER;
+V_NOME VARCHAR2(50);
+V_NOME_NEXT VARCHAR2(50);
+BEGIN
+    SELECT CATEGORIA, ltrim(SYS_CONNECT_BY_PATH(NOME, ','),',') NOME,
+      LEAD (NOME) OVER(ORDER BY NOME) NOME_NEXT INTO V_CATEGORIA, V_NOME, V_NOME_NEXT
+      FROM (select CATEGORIA, NOME, rank() 
+            over(partition by CATEGORIA order by NOME) num from T_GERARCHICA)
+    where connect_by_isleaf=1
+    START WITH num=1
+    CONNECT BY PRIOR num+1 = num and prior CATEGORIA=CATEGORIA;
+END P_GERARCHICAL_SELECT;
+
+--NOME, COGNOME, EMAIL, DATA, TITOLO
+
+PROCEDURE P_LOOP_INFO
+IS
+V_STAMPA VARCHAR2(500);
+BEGIN
+    
+    FOR i IN (SELECT * FROM UTENTI u /*GROUP BY u.email*/ )
+    LOOP
+    
+        V_STAMPA := i.nome || ' ' || i.cognome || ' ' || i.email;
+        FOR J IN (SELECT p.titolo, NVL(p.data, SYSDATE) DATAB FROM POSTS p WHERE p.utente_id = i.id_utente) -- necessario un nominati alla data
+        LOOP
+            DBMS_OUTPUT.PUT_LINE(V_STAMPA || '  :  ' || j.titolo || ', ' || j.DATAB);
+            DBMS_OUTPUT.PUT_LINE(i.id_utente);
+        END LOOP;
+    
+    END LOOP;
+END P_LOOP_INFO;
+
+
+FUNCTION F_GET_ID_USER(in_email VARCHAR2) RETURN ID_TABLE
+IS
+
+V_EMAIL_USER VARCHAR2(500) := in_email;
+V_ID_USER UTENTI.id_utente%TYPE;
+
+
+BEGIN
+    SELECT u.id_utente INTO V_ID_USER
+     FROM UTENTI u
+     WHERE u.email = in_email;
+    
+    RETURN ID_TABLE(
+            ID_USER(V_EMAIL_USER, V_ID_USER)
+    );
+END F_GET_ID_USER; 
+ 
+ 
+END PCK_FEDERICO_MARI;

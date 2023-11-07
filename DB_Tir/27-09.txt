@@ -1,0 +1,81 @@
+    PROCEDURE P_DELETE_CLIENTE(IN_ID NUMBER); --FEDERICO
+    PROCEDURE P_UPDATE_CLIENTE(IN_ID NUMBER, IN_TELEFONO VARCHAR2); --FEDERICO
+    FUNCTION F_CONTROLLO_NUMERO(IN_NUMERO VARCHAR2) RETURN NUMBER; -- FEDERICO, FRANCESCO
+
+
+----------------------------------
+
+
+    PROCEDURE P_DELETE_CLIENTE(IN_ID NUMBER) 
+    IS
+    
+    V_ID_CLIENTE NUMBER := IN_ID;
+    
+    BEGIN
+        
+        IF V_ID_CLIENTE IS NOT NULL THEN 
+             
+            DELETE
+             FROM CLIENTI c
+             WHERE c.ID = V_ID_CLIENTE; 
+            
+    -- non inseriti delete collegati a chiavi esterne in altre tabelle in quanto vincolo generale ON CASCADE DELETE attivo su cancellazione di un cliente
+        
+        END IF;
+    
+    END P_DELETE_CLIENTE;
+    
+    -----
+    
+    PROCEDURE P_UPDATE_CLIENTE(IN_ID NUMBER, IN_TELEFONO VARCHAR2)
+    IS
+    
+    V_ID_CLIENTE NUMBER := IN_ID;
+
+    BEGIN
+    
+        IF GRUPPO_1.F_CONTROLLO_NUMERO(IN_TELEFONO) = 1 AND V_ID_CLIENTE IS NOT NULL THEN 
+        
+            UPDATE CLIENTI c
+                SET
+                 c.TELEFONO = IN_TELEFONO         
+                WHERE c.ID = V_ID_CLIENTE;
+        
+        END IF;
+    
+    END P_UPDATE_DIPENDENTE;
+    
+    ------
+    
+    FUNCTION F_CONTROLLO_NUMERO(IN_NUMERO VARCHAR2) RETURN NUMBER
+    IS
+    
+    V_NUMERO_ESISTE NUMBER;
+    
+    BEGIN
+        IF LENGTH(IN_NUMERO) >2 AND LENGTH(IN_NUMERO) < 13 THEN
+            
+            SELECT COUNT(0) INTO V_NUMERO_ESISTE
+             FROM (
+                SELECT u.*
+                 FROM (
+                    SELECT c.TELEFONO
+                     FROM CLIENTI c
+             
+                    UNION
+            
+                    SELECT d.TELEFONO
+                     FROM DIPENDENTI d
+                 ) u
+             ) t
+            WHERE t.TELEFONO = IN_NUMERO;           
+            
+        END IF;
+        
+        IF V_NUMERO_ESISTE = 0 THEN
+            RETURN 1;
+        ELSIF V_NUMERO_ESISTE <> 0 THEN
+            RETURN 0;
+        END IF;
+            
+    END F_CONTROLLO_NUMERO;
